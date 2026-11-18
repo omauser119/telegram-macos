@@ -30,6 +30,7 @@ private final class Arguments {
     public let toggleMenu: (Bool) -> Void
     public let toggleAnimatedInputEmoji: () -> Void
     public let toggleNativeGraphicContext: () -> Void
+    public let toggleCallsHardenMode: (Bool) -> Void
     public let toggleDebugWebApp: () -> Void
     public let toggleNetwork: () -> Void
     public let selectNetworkEngine: (NetworkEngineKind) -> Void
@@ -49,6 +50,7 @@ private final class Arguments {
          toggleMenu: @escaping (Bool) -> Void,
          toggleAnimatedInputEmoji: @escaping () -> Void,
          toggleNativeGraphicContext: @escaping () -> Void,
+         toggleCallsHardenMode: @escaping (Bool) -> Void,
          toggleDebugWebApp: @escaping () -> Void,
          toggleNetwork: @escaping () -> Void,
          selectNetworkEngine: @escaping (NetworkEngineKind) -> Void,
@@ -68,6 +70,7 @@ private final class Arguments {
         self.toggleMenu = toggleMenu
         self.toggleAnimatedInputEmoji = toggleAnimatedInputEmoji
         self.toggleNativeGraphicContext = toggleNativeGraphicContext
+        self.toggleCallsHardenMode = toggleCallsHardenMode
         self.toggleDebugWebApp = toggleDebugWebApp
         self.toggleNetwork = toggleNetwork
         self.selectNetworkEngine = selectNetworkEngine
@@ -86,6 +89,7 @@ private struct State: Equatable {
     public var legacyMenu: Bool = false
     public var animateInputEmoji: Bool = false
     public var useNativeGraphicContext: Bool = false
+    public var callsHardenMode: Bool = false
     public var debugWebApp: Bool = false
     public var useNetworkFramework: Bool = false
     public var networkEngine: NetworkEngineKind = .mtProtoKit
@@ -103,6 +107,7 @@ private let _id_open_logs = InputDataIdentifier("_id_open_logs")
 private let _id_toggle_menu = InputDataIdentifier("_id_toggle_menu")
 private let _id_animate_input_emoji = InputDataIdentifier("_id_animate_input_emoji")
 private let _id_native_graphic_context = InputDataIdentifier("_id_native_graphic_context")
+private let _id_calls_harden_mode = InputDataIdentifier("_id_calls_harden_mode")
 private let _id_debug_web_app = InputDataIdentifier("_id_debug_web_app")
 private let _id_network = InputDataIdentifier("_id_network")
 private let _id_network_engine = InputDataIdentifier("_id_network_engine")
@@ -212,7 +217,10 @@ private func entries(_ state: State, arguments: Arguments) -> [InputDataEntry] {
     entries.append(.desc(sectionId: sectionId, index: index, text: .plain("DEBUGGING"), data: .init(viewType: .textTopItem)))
     index += 1
 
-    entries.append(.general(sectionId: sectionId, index: index, value: .none, error: nil, identifier: _id_debug_web_app, data: InputDataGeneralData(name: "Debug Web App", color: theme.colors.text, type: .switchable(state.debugWebApp), viewType: .firstItem, action: arguments.toggleDebugWebApp)))
+    entries.append(.general(sectionId: sectionId, index: index, value: .none, error: nil, identifier: _id_calls_harden_mode, data: InputDataGeneralData(name: "Calls Harden Mode", color: theme.colors.text, type: .switchable(state.callsHardenMode), viewType: .firstItem, action: { arguments.toggleCallsHardenMode(!state.callsHardenMode) })))
+    index += 1
+
+    entries.append(.general(sectionId: sectionId, index: index, value: .none, error: nil, identifier: _id_debug_web_app, data: InputDataGeneralData(name: "Debug Web App", color: theme.colors.text, type: .switchable(state.debugWebApp), viewType: .innerItem, action: arguments.toggleDebugWebApp)))
     index += 1
 
     entries.append(.general(sectionId: sectionId, index: index, value: .none, error: nil, identifier: _id_memory_report, data: InputDataGeneralData(name: "Memory Report (to log)", color: theme.colors.text, type: .none, viewType: .innerItem, action: arguments.memoryReport)))
@@ -258,6 +266,7 @@ public func DeveloperViewController(context: any AccountContextProtocol) -> Inpu
         legacyMenu: System.legacyMenu,
         animateInputEmoji: FastSettings.animateInputEmoji,
         useNativeGraphicContext: FastSettings.useNativeGraphicContext,
+        callsHardenMode: UserDefaults.standard.bool(forKey: "CallsHardenMode"),
         debugWebApp: FastSettings.debugWebApp,
         useNetworkFramework: false,
         networkEngine: .mtProtoKit,
@@ -326,6 +335,13 @@ public func DeveloperViewController(context: any AccountContextProtocol) -> Inpu
         updateState { current in
             var current = current
             current.useNativeGraphicContext = FastSettings.useNativeGraphicContext
+            return current
+        }
+    }, toggleCallsHardenMode: { enabled in
+        UserDefaults.standard.set(enabled, forKey: "CallsHardenMode")
+        updateState { current in
+            var current = current
+            current.callsHardenMode = enabled
             return current
         }
     }, toggleDebugWebApp: {

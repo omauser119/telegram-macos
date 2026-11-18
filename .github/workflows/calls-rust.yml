@@ -1,0 +1,42 @@
+name: Build Telegram macOS Calls branch
+on:
+  workflow_dispatch:
+  push:
+    branches: [calls-rust]
+permissions:
+  contents: read
+jobs:
+  macos:
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - name: Use HTTPS for upstream submodules
+        run: |
+          git config --global url.https://github.com/.insteadOf git@github.com:
+          git config --global url.https://gitlab.com/.insteadOf git@gitlab.com:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: Prepare dependencies
+        run: |
+          bash scripts/setup_build_env.sh
+          if xcodebuild -version | rg -q '^Xcode 27\.'; then
+            bash scripts/xcode27.sh apply
+          fi
+          CMAKE_POLICY_VERSION_MINIMUM=3.5 bash scripts/configure_frameworks.sh
+      - name: Build the app
+        run: |
+          xcodebuild -workspace Telegram-Mac.xcworkspace -scheme Telegram \
+            -configuration Debug -derivedDataPath "$RUNNER_TEMP/telegram-build" \
+            CODE_SIGNING_ALLOWED=NO build
+      - name: Archive the application
+        run: |
+          app="$(find "$RUNNER_TEMP/telegram-build/Build/Products/Debug" -maxdepth 1 -name 'Telegram.app' -print -quit)"
+          test -n "$app"
+          ditto -c -k --keepParent "$app" "$RUNNER_TEMP/Telegram-macOS.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Telegram-macOS
+          path: ${{ runner.temp }}/Telegram-macOS.zip
+          if-no-files-found: error
